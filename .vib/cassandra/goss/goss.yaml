@@ -20,6 +20,38 @@ command:
   {{- $port := .Vars.containerPorts.cql }}
   {{- $nodes := .Vars.replicaCount }}
   {{- $keyspace := printf "test_%s" (randAlpha 5) }}
+  check-connectivity-0:
+    exec: "echo > /dev/tcp/cassandra-0.cassandra-headless/{{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  check-connectivity-0-fail:
+    exec: "echo > /dev/tcp/cassandra-0.cassandra-headless/9044"
+    exit-status: 1
+    timeout: 20000
+  check-connectivity-1:
+    exec: "echo > /dev/tcp/cassandra-1.cassandra-headless/{{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  cqlsh-login-0:
+    exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e help cassandra-0.cassandra-headless {{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  cqlsh-login-1:
+    exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e help cassandra-1.cassandra-headless {{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  create-keyspace-bla:
+    exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e 'CREATE KEYSPACE bla WITH REPLICATION = { $$class$$: $$SimpleStrategy$$, $$replication_factor$$ : {{ $nodes }} };' cassandra-0.cassandra-headless {{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  check-keyspace-bla-0:
+    exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e 'USE bla;' cassandra-0.cassandra-headless {{ $port }}"
+    exit-status: 0
+    timeout: 20000
+  check-keyspace-bla-1:
+    exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e 'USE bla;' cassandra-1.cassandra-headless {{ $port }}"
+    exit-status: 0
+    timeout: 20000
   manage-keyspace:
     exec: "cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e 'CREATE KEYSPACE {{ $keyspace }} WITH REPLICATION = { $$class$$: $$SimpleStrategy$$, $$replication_factor$$ : {{ $nodes }} };' cassandra-0.cassandra-headless {{ $port }}{{ range $e, $i := until $nodes }} && cqlsh -u {{ $dbUser }} -p {{ $dbPassword }} -e 'USE {{ $keyspace }};' cassandra-{{ $i }}.cassandra-headless {{ $port }}{{ end }}"
     exit-status: 0
